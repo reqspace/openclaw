@@ -33,7 +33,7 @@ ENV NODE_ENV=production
 
 # Create data directories and gateway config for Railway/cloud deployment
 RUN mkdir -p /data/.openclaw /app/.openclaw && \
-    printf 'gateway:\n  trustedProxies:\n    - "100.64.0.0/10"\n    - "10.0.0.0/8"\n    - "172.16.0.0/12"\n    - "192.168.0.0/16"\n  controlUi:\n    dangerouslyDisableDeviceAuth: true\n' > /app/.openclaw/config.yaml
+    echo '{"gateway":{"trustedProxies":["100.64.0.0/10","10.0.0.0/8","172.16.0.0/12","192.168.0.0/16"],"controlUi":{"dangerouslyDisableDeviceAuth":true}}}' > /app/.openclaw/openclaw.json
 
 # Allow non-root user to write temp files during runtime/tests.
 RUN chown -R node:node /app /data/.openclaw
