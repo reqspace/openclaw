@@ -34,13 +34,12 @@ ENV NODE_ENV=production
 # Create data directories for Railway/cloud deployment
 RUN mkdir -p /data/.openclaw /app/.openclaw
 
-# Store clean config in root-owned read-only location that node user can't modify.
-# The Control UI writes to OPENCLAW_STATE_DIR — entrypoint resets it on every start.
-COPY openclaw-cloud-config.json /etc/openclaw/clean-config.json
-RUN chmod 444 /etc/openclaw/clean-config.json
-
-COPY docker-entrypoint.sh /app/docker-entrypoint.sh
-RUN chmod +x /app/docker-entrypoint.sh
+# Store config in root-owned directory with read-only permissions.
+# Node process can READ but not WRITE — Control UI saves fail harmlessly
+# instead of corrupting config and crashing the gateway.
+RUN mkdir -p /etc/openclaw
+COPY openclaw-cloud-config.json /etc/openclaw/openclaw.json
+RUN chmod 444 /etc/openclaw/openclaw.json && chmod 555 /etc/openclaw
 
 # Allow non-root user to write temp files during runtime/tests.
 RUN chown -R node:node /app /data/.openclaw
@@ -50,7 +49,7 @@ USER node
 
 # Default state dir for cloud deployments
 ENV OPENCLAW_STATE_DIR=/app/.openclaw
+# Point config to root-owned read-only file — node can't overwrite it
+ENV OPENCLAW_CONFIG_PATH=/etc/openclaw/openclaw.json
 
-# Entrypoint resets config from read-only source, then runs CMD
-ENTRYPOINT ["/app/docker-entrypoint.sh"]
 CMD ["node", "openclaw.mjs", "gateway", "--allow-unconfigured", "--bind", "lan"]
