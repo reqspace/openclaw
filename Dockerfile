@@ -31,25 +31,15 @@ RUN pnpm ui:build
 
 ENV NODE_ENV=production
 
-# Create data directories for Railway/cloud deployment
-RUN mkdir -p /data/.openclaw /app/.openclaw
+# Place config at the default location OpenClaw expects for the node user.
+# No env var overrides — just the standard ~/.openclaw/ path.
+RUN mkdir -p /home/node/.openclaw /data/.openclaw
+COPY openclaw-cloud-config.json /home/node/.openclaw/openclaw.json
 
-# Store config in root-owned directory with read-only permissions.
-# Node process can READ but not WRITE — Control UI saves fail harmlessly
-# instead of corrupting config and crashing the gateway.
-RUN mkdir -p /etc/openclaw
-COPY openclaw-cloud-config.json /etc/openclaw/openclaw.json
-RUN chmod 444 /etc/openclaw/openclaw.json && chmod 555 /etc/openclaw
-
-# Allow non-root user to write temp files during runtime/tests.
-RUN chown -R node:node /app /data/.openclaw
+# Allow non-root user to write temp files during runtime.
+RUN chown -R node:node /app /home/node/.openclaw /data/.openclaw
 
 # Security hardening: Run as non-root user
 USER node
-
-# Default state dir for cloud deployments
-ENV OPENCLAW_STATE_DIR=/app/.openclaw
-# Point config to root-owned read-only file — node can't overwrite it
-ENV OPENCLAW_CONFIG_PATH=/etc/openclaw/openclaw.json
 
 CMD ["node", "openclaw.mjs", "gateway", "--allow-unconfigured", "--bind", "lan"]
