@@ -34,8 +34,11 @@ ENV NODE_ENV=production
 # Create data directories for Railway/cloud deployment
 RUN mkdir -p /data/.openclaw /app/.openclaw
 
-# Bake config into image at a path no volume mount can overwrite
-COPY openclaw-cloud-config.json /app/openclaw-cloud-config.json
+# Store clean config in root-owned read-only location that node user can't modify.
+# The Control UI writes to OPENCLAW_STATE_DIR — entrypoint resets it on every start.
+COPY openclaw-cloud-config.json /etc/openclaw/clean-config.json
+RUN chmod 444 /etc/openclaw/clean-config.json
+
 COPY docker-entrypoint.sh /app/docker-entrypoint.sh
 RUN chmod +x /app/docker-entrypoint.sh
 
@@ -47,9 +50,7 @@ USER node
 
 # Default state dir for cloud deployments
 ENV OPENCLAW_STATE_DIR=/app/.openclaw
-# Force config path — highest priority, bypasses all other config discovery
-ENV OPENCLAW_CONFIG_PATH=/app/openclaw-cloud-config.json
 
-# Entrypoint copies config to state dir, then runs CMD
+# Entrypoint resets config from read-only source, then runs CMD
 ENTRYPOINT ["/app/docker-entrypoint.sh"]
 CMD ["node", "openclaw.mjs", "gateway", "--allow-unconfigured", "--bind", "lan"]
