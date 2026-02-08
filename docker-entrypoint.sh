@@ -1,0 +1,27 @@
+#!/bin/sh
+# Reset config to known-good state on every container start.
+# This prevents runtime config modifications (e.g. plugins added via Control UI)
+# from breaking the gateway on restart when referenced env vars aren't set.
+
+cat > "$OPENCLAW_STATE_DIR/openclaw.json" <<'CONF'
+{
+  "agents": {
+    "defaults": {
+      "model": {
+        "primary": "moonshot/kimi-k2.5",
+        "fallbacks": ["groq/llama-3.3-70b-versatile", "anthropic/claude-sonnet-4-5", "anthropic/claude-opus-4-6"]
+      },
+      "imageModel": {
+        "primary": "anthropic/claude-sonnet-4-5",
+        "fallbacks": ["anthropic/claude-opus-4-6"]
+      }
+    }
+  },
+  "gateway": {
+    "trustedProxies": ["100.64.0.0/10", "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"],
+    "controlUi": { "dangerouslyDisableDeviceAuth": true }
+  }
+}
+CONF
+
+exec "$@"

@@ -31,26 +31,12 @@ RUN pnpm ui:build
 
 ENV NODE_ENV=production
 
-# Create data directories and gateway config for Railway/cloud deployment
-RUN mkdir -p /data/.openclaw /app/.openclaw && \
-    echo '{ \
-  "agents": { \
-    "defaults": { \
-      "model": { \
-        "primary": "moonshot/kimi-k2.5", \
-        "fallbacks": ["groq/llama-3.3-70b-versatile", "anthropic/claude-sonnet-4-5", "anthropic/claude-opus-4-6"] \
-      }, \
-      "imageModel": { \
-        "primary": "anthropic/claude-sonnet-4-5", \
-        "fallbacks": ["anthropic/claude-opus-4-6"] \
-      } \
-    } \
-  }, \
-  "gateway": { \
-    "trustedProxies": ["100.64.0.0/10", "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"], \
-    "controlUi": { "dangerouslyDisableDeviceAuth": true } \
-  } \
-}' > /app/.openclaw/openclaw.json
+# Create data directories for Railway/cloud deployment
+RUN mkdir -p /data/.openclaw /app/.openclaw
+
+# Copy entrypoint that resets config to known-good state on every start
+COPY docker-entrypoint.sh /app/docker-entrypoint.sh
+RUN chmod +x /app/docker-entrypoint.sh
 
 # Allow non-root user to write temp files during runtime/tests.
 RUN chown -R node:node /app /data/.openclaw
@@ -61,5 +47,6 @@ USER node
 # Default state dir for cloud deployments
 ENV OPENCLAW_STATE_DIR=/app/.openclaw
 
-# Start gateway server bound to LAN for container platforms.
+# Entrypoint resets config, then runs the CMD
+ENTRYPOINT ["/app/docker-entrypoint.sh"]
 CMD ["node", "openclaw.mjs", "gateway", "--allow-unconfigured", "--bind", "lan"]
