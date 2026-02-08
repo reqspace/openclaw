@@ -1,27 +1,9 @@
 #!/bin/sh
-# Reset config to known-good state on every container start.
-# This prevents runtime config modifications (e.g. plugins added via Control UI)
-# from breaking the gateway on restart when referenced env vars aren't set.
+# Ensure state dir exists (volume mount may create empty dir)
+mkdir -p "$OPENCLAW_STATE_DIR" 2>/dev/null || true
 
-cat > "$OPENCLAW_STATE_DIR/openclaw.json" <<'CONF'
-{
-  "agents": {
-    "defaults": {
-      "model": {
-        "primary": "moonshot/kimi-k2.5",
-        "fallbacks": ["groq/llama-3.3-70b-versatile", "anthropic/claude-sonnet-4-5", "anthropic/claude-opus-4-6"]
-      },
-      "imageModel": {
-        "primary": "anthropic/claude-sonnet-4-5",
-        "fallbacks": ["anthropic/claude-opus-4-6"]
-      }
-    }
-  },
-  "gateway": {
-    "trustedProxies": ["100.64.0.0/10", "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"],
-    "controlUi": { "dangerouslyDisableDeviceAuth": true }
-  }
-}
-CONF
+# Copy immutable config into state dir so gateway can find it
+# OPENCLAW_CONFIG_PATH points here — highest priority, can't be overridden
+cp /app/openclaw-cloud-config.json "$OPENCLAW_STATE_DIR/openclaw.json" 2>/dev/null || true
 
 exec "$@"
