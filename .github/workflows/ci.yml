@@ -69,6 +69,7 @@ jobs:
           run_macos=false
           run_android=false
           has_non_docs=false
+          has_non_native_non_docs=false
 
           while IFS= read -r path; do
             [ -z "$path" ] && continue
@@ -82,7 +83,7 @@ jobs:
             esac
 
             case "$path" in
-              apps/macos/*|apps/ios/*|apps/shared/*)
+              apps/macos/*|apps/ios/*|apps/shared/*|Swabble/*)
                 run_macos=true
                 ;;
             esac
@@ -98,93 +99,24 @@ jobs:
                 run_node=true
                 ;;
             esac
+
+            case "$path" in
+              apps/android/*|apps/ios/*|apps/macos/*|apps/shared/*|Swabble/*|appcast.xml)
+                ;;
+              *)
+                has_non_native_non_docs=true
+                ;;
+            esac
           done <<< "$CHANGED"
 
           # If there are non-doc files outside native app trees, keep Node checks enabled.
-          if [ "$run_node" = false ] && [ "$has_non_docs" = true ]; then
-            if echo "$CHANGED" | grep -vE '^(docs/|.*\.md$|.*\.mdx$|apps/android/|apps/ios/|apps/macos/|apps/shared/|Swabble/|appcast\.xml$)' | grep -q .; then
-              run_node=true
-            fi
+          if [ "$run_node" = false ] && [ "$has_non_docs" = true ] && [ "$has_non_native_non_docs" = true ]; then
+            run_node=true
           fi
 
           echo "run_node=${run_node}" >> "$GITHUB_OUTPUT"
           echo "run_macos=${run_macos}" >> "$GITHUB_OUTPUT"
           echo "run_android=${run_android}" >> "$GITHUB_OUTPUT"
-
-  # Build once and promote dist as an artifact so downstream checks don't rebuild.
-  build-artifacts:
-    needs: [docs-scope, changed-scope]
-    if: needs.docs-scope.outputs.docs_only != 'true' && (github.event_name == 'push' || needs.changed-scope.outputs.run_node == 'true')
-    runs-on: blacksmith-4vcpu-ubuntu-2404
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          submodules: false
-
-      - name: Checkout submodules (retry)
-        run: |
-          set -euo pipefail
-          git submodule sync --recursive
-          for attempt in 1 2 3 4 5; do
-            if git -c protocol.version=2 submodule update --init --force --depth=1 --recursive; then
-              exit 0
-            fi
-            echo "Submodule update failed (attempt $attempt/5). Retrying…"
-            sleep $((attempt * 10))
-          done
-          exit 1
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22.x
-          check-latest: true
-          cache: pnpm
-          cache-dependency-path: pnpm-lock.yaml
-
-      - name: Setup pnpm (corepack retry)
-        run: |
-          set -euo pipefail
-          corepack enable
-          for attempt in 1 2 3; do
-            if corepack prepare pnpm@10.23.0 --activate; then
-              pnpm -v
-              exit 0
-            fi
-            echo "corepack prepare failed (attempt $attempt/3). Retrying..."
-            sleep $((attempt * 10))
-          done
-          exit 1
-
-      - name: Runtime versions
-        run: |
-          node -v
-          npm -v
-          pnpm -v
-
-      - name: Capture node path
-        run: echo "NODE_BIN=$(dirname \"$(node -p \"process.execPath\")\")" >> "$GITHUB_ENV"
-
-      - name: Install dependencies
-        env:
-          CI: true
-        run: |
-          export PATH="$NODE_BIN:$PATH"
-          which node
-          node -v
-          pnpm -v
-          pnpm install --frozen-lockfile --ignore-scripts=false --config.engine-strict=false --config.enable-pre-post-scripts=true
-
-      - name: Build dist
-        run: pnpm build
-
-      - name: Upload dist artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: dist-build
-          path: dist/
-          retention-days: 1
 
   install-check:
     needs: [docs-scope, changed-scope]
@@ -251,7 +183,7 @@ jobs:
           pnpm install --frozen-lockfile --ignore-scripts=false --config.engine-strict=false --config.enable-pre-post-scripts=true
 
   checks:
-    needs: [docs-scope, changed-scope, build-artifacts]
+    needs: [docs-scope, changed-scope]
     if: needs.docs-scope.outputs.docs_only != 'true' && (github.event_name == 'push' || needs.changed-scope.outputs.run_node == 'true')
     runs-on: blacksmith-4vcpu-ubuntu-2404
     strategy:
