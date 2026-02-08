@@ -14,5 +14,16 @@
   "gateway": {
     "trustedProxies": ["100.64.0.0/10", "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"],
     "controlUi": { "dangerouslyDisableDeviceAuth": true }
+  },
+  "hooks": {
+    "enabled": true,
+    "mappings": [
+      {
+        "id": "telnyx-sms",
+        "match": { "path": "/telnyx" },
+        "action": "agent",
+        "allowUnsafeExternalContent": true
+      }
+    ]
   }
 }
