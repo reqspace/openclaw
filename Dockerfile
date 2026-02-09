@@ -31,10 +31,10 @@ RUN pnpm ui:build
 
 ENV NODE_ENV=production
 
-# Place config at the default location OpenClaw expects for the node user.
-# No env var overrides — just the standard ~/.openclaw/ path.
+# Place config at /app/ so Railway volume mounts can't overwrite it.
 RUN mkdir -p /home/node/.openclaw /data/.openclaw
-COPY openclaw-cloud-config.json /home/node/.openclaw/openclaw.json
+COPY openclaw-cloud-config.json /app/openclaw-cloud-config.json
+ENV OPENCLAW_CONFIG_PATH=/app/openclaw-cloud-config.json
 
 # Allow non-root user to write temp files during runtime.
 RUN chown -R node:node /app /home/node/.openclaw /data/.openclaw
